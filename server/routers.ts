@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { SignJWT } from "jose";
-import { router, publicProcedure, adminProcedure } from "./trpc";
+import { router, publicProcedure, protectedProcedure } from "./trpc";
 import { getAllScriptUsers, getScriptUserById, createScriptUser, updateScriptUser, deleteScriptUser, getCardResults, getCardResultsCount, getRecentResults, getActivityLogs, getStatistics, invalidateUserSessions, getAdminUserByUsername, updateAdminUserLastSignIn, logActivity, deleteCardResult, deleteCardResults, getDistinctCountries, clearActivityLogs } from "./db";
 import { hashPassword, verifyPassword } from "./crypto";
 
@@ -32,7 +32,7 @@ export const appRouter = router({
           .sign(getCookieSecret());
         
         ctx.res.cookie(COOKIE_NAME, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 });
-        return { success: true, user: { id: user.id, username: user.username, role: user.role } };
+        return { success: true, user: { id: user.id, username: user.username } };
       }),
     
     logout: publicProcedure.mutation(async ({ ctx }) => {
@@ -43,10 +43,10 @@ export const appRouter = router({
   }),
 
   scriptUsers: router({
-    list: adminProcedure.query(() => getAllScriptUsers()),
-    get: adminProcedure.input(z.object({ id: z.number() })).query(({ input }) => getScriptUserById(input.id)),
+    list: protectedProcedure.query(() => getAllScriptUsers()),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => getScriptUserById(input.id)),
     
-    create: adminProcedure
+    create: protectedProcedure
       .input(z.object({ username: z.string().min(3), password: z.string().min(6), maxDailyChecks: z.number().optional().default(1000), expiresAt: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
         const user = await createScriptUser({ username: input.username, passwordHash: hashPassword(input.password), maxDailyChecks: input.maxDailyChecks, expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined });
@@ -54,7 +54,7 @@ export const appRouter = router({
         return user;
       }),
     
-    update: adminProcedure
+    update: protectedProcedure
       .input(z.object({ id: z.number(), isActive: z.boolean().optional(), maxDailyChecks: z.number().optional(), expiresAt: z.string().nullable().optional(), password: z.string().min(6).optional() }))
       .mutation(async ({ ctx, input }) => {
         const { id, password, expiresAt, ...data } = input;
@@ -66,14 +66,14 @@ export const appRouter = router({
         return { success: true };
       }),
     
-    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       await invalidateUserSessions(input.id);
       await deleteScriptUser(input.id);
       await logActivity({ adminUserId: ctx.user.id, action: "delete_script_user", details: `حذف مستخدم ID: ${input.id}` });
       return { success: true };
     }),
     
-    resetPassword: adminProcedure.input(z.object({ id: z.number(), newPassword: z.string().min(6) })).mutation(async ({ ctx, input }) => {
+    resetPassword: protectedProcedure.input(z.object({ id: z.number(), newPassword: z.string().min(6) })).mutation(async ({ ctx, input }) => {
       await updateScriptUser(input.id, { passwordHash: hashPassword(input.newPassword) });
       await invalidateUserSessions(input.id);
       await logActivity({ adminUserId: ctx.user.id, action: "reset_password", details: `إعادة تعيين كلمة مرور ID: ${input.id}` });
@@ -82,22 +82,22 @@ export const appRouter = router({
   }),
 
   results: router({
-    list: adminProcedure
+    list: protectedProcedure
       .input(z.object({ scriptUserId: z.number().optional(), status: z.enum(["ACTIVE", "DECLINED", "ERROR"]).optional(), country: z.string().optional(), limit: z.number().optional().default(50), offset: z.number().optional().default(0) }))
       .query(async ({ input }) => {
         const results = await getCardResults(input);
         const total = await getCardResultsCount({ scriptUserId: input.scriptUserId, status: input.status, country: input.country });
         return { results, total };
       }),
-    countries: adminProcedure.query(() => getDistinctCountries()),
-    recent: adminProcedure.input(z.object({ limit: z.number().optional().default(50) })).query(({ input }) => getRecentResults(input.limit)),
-    count: adminProcedure.input(z.object({ scriptUserId: z.number().optional(), status: z.enum(["ACTIVE", "DECLINED", "ERROR"]).optional() })).query(({ input }) => getCardResultsCount(input)),
-    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    countries: protectedProcedure.query(() => getDistinctCountries()),
+    recent: protectedProcedure.input(z.object({ limit: z.number().optional().default(50) })).query(({ input }) => getRecentResults(input.limit)),
+    count: protectedProcedure.input(z.object({ scriptUserId: z.number().optional(), status: z.enum(["ACTIVE", "DECLINED", "ERROR"]).optional() })).query(({ input }) => getCardResultsCount(input)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       await deleteCardResult(input.id);
       await logActivity({ adminUserId: ctx.user.id, action: "delete_result", details: `حذف نتيجة ID: ${input.id}` });
       return { success: true };
     }),
-    deleteMany: adminProcedure.input(z.object({ ids: z.array(z.number()) })).mutation(async ({ ctx, input }) => {
+    deleteMany: protectedProcedure.input(z.object({ ids: z.array(z.number()) })).mutation(async ({ ctx, input }) => {
       await deleteCardResults(input.ids);
       await logActivity({ adminUserId: ctx.user.id, action: "delete_results", details: `حذف ${input.ids.length} نتيجة` });
       return { success: true, count: input.ids.length };
@@ -105,8 +105,8 @@ export const appRouter = router({
   }),
 
   activityLogs: router({
-    list: adminProcedure.input(z.object({ scriptUserId: z.number().optional(), limit: z.number().optional().default(100), offset: z.number().optional().default(0) })).query(({ input }) => getActivityLogs(input)),
-    clear: adminProcedure.mutation(async ({ ctx }) => {
+    list: protectedProcedure.input(z.object({ scriptUserId: z.number().optional(), limit: z.number().optional().default(100), offset: z.number().optional().default(0) })).query(({ input }) => getActivityLogs(input)),
+    clear: protectedProcedure.mutation(async ({ ctx }) => {
       await clearActivityLogs();
       await logActivity({ adminUserId: ctx.user.id, action: "clear_logs", details: "مسح جميع السجلات" });
       return { success: true };
@@ -114,7 +114,7 @@ export const appRouter = router({
   }),
 
   statistics: router({
-    overview: adminProcedure.query(() => getStatistics()),
+    overview: protectedProcedure.query(() => getStatistics()),
   }),
 });
 

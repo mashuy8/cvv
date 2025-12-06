@@ -1,11 +1,10 @@
 import { mysqlTable, int, varchar, text, boolean, timestamp, mysqlEnum } from "drizzle-orm/mysql-core";
 
-// Admin users for dashboard login
+// Admin users for dashboard login - simplified without role column
 export const adminUsers = mysqlTable("admin_users", {
   id: int("id").primaryKey().autoincrement(),
   username: varchar("username", { length: 64 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 256 }).notNull(),
-  role: mysqlEnum("role", ["user", "admin"]).notNull().default("admin"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   lastSignedIn: timestamp("last_signed_in").notNull().defaultNow(),
