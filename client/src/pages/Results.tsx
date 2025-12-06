@@ -1,6 +1,122 @@
 import { useState } from "react";
 import { trpc } from "../lib/trpc";
 
+// دالة للتعرف على نوع البطاقة من رقمها
+const getCardType = (cardNumber: string): { type: string; name: string; color: string } => {
+  const num = cardNumber.replace(/\s/g, '');
+  
+  // Visa: يبدأ بـ 4
+  if (/^4/.test(num)) {
+    return { type: 'visa', name: 'Visa', color: '#1A1F71' };
+  }
+  
+  // Mastercard: يبدأ بـ 51-55 أو 2221-2720
+  if (/^5[1-5]/.test(num) || /^2[2-7]/.test(num)) {
+    return { type: 'mastercard', name: 'Mastercard', color: '#EB001B' };
+  }
+  
+  // American Express: يبدأ بـ 34 أو 37
+  if (/^3[47]/.test(num)) {
+    return { type: 'amex', name: 'Amex', color: '#006FCF' };
+  }
+  
+  // Discover: يبدأ بـ 6011, 644-649, 65
+  if (/^6011|^64[4-9]|^65/.test(num)) {
+    return { type: 'discover', name: 'Discover', color: '#FF6000' };
+  }
+  
+  // JCB: يبدأ بـ 3528-3589
+  if (/^35(2[89]|[3-8])/.test(num)) {
+    return { type: 'jcb', name: 'JCB', color: '#0B4EA2' };
+  }
+  
+  // Diners Club: يبدأ بـ 300-305, 36, 38
+  if (/^3(?:0[0-5]|[68])/.test(num)) {
+    return { type: 'diners', name: 'Diners', color: '#004A97' };
+  }
+  
+  // UnionPay: يبدأ بـ 62
+  if (/^62/.test(num)) {
+    return { type: 'unionpay', name: 'UnionPay', color: '#D8232A' };
+  }
+  
+  return { type: 'unknown', name: 'Unknown', color: '#6B7280' };
+};
+
+// مكون أيقونة البطاقة
+const CardIcon = ({ cardNumber }: { cardNumber: string }) => {
+  const card = getCardType(cardNumber);
+  
+  const icons: Record<string, JSX.Element> = {
+    visa: (
+      <svg viewBox="0 0 48 48" className="w-8 h-6">
+        <rect width="48" height="48" rx="4" fill="#1A1F71"/>
+        <path d="M19.5 31h-3.2l2-12.3h3.2l-2 12.3zm13.3-12c-.6-.3-1.6-.5-2.9-.5-3.2 0-5.4 1.7-5.4 4.1 0 1.8 1.6 2.8 2.8 3.4 1.2.6 1.6 1 1.6 1.5 0 .8-1 1.2-1.9 1.2-1.2 0-1.9-.2-2.9-.6l-.4-.2-.4 2.6c.7.3 2.1.6 3.5.6 3.4 0 5.6-1.7 5.6-4.2 0-1.4-.8-2.5-2.7-3.4-1.1-.6-1.8-.9-1.8-1.5 0-.5.6-1 1.8-1 1 0 1.8.2 2.4.5l.3.1.4-2.6zm8.4-.3h-2.5c-.8 0-1.4.2-1.7 1l-4.8 11.3h3.4l.7-1.9h4.1l.4 1.9h3l-2.6-12.3zm-4.2 8l1.3-3.5.4-1.1.2 1 .8 3.6h-2.7zM15.4 18.7l-3 8.4-.3-1.6c-.6-1.9-2.3-4-4.3-5l2.9 10.5h3.4l5.1-12.3h-3.8z" fill="white"/>
+      </svg>
+    ),
+    mastercard: (
+      <svg viewBox="0 0 48 48" className="w-8 h-6">
+        <rect width="48" height="48" rx="4" fill="#000"/>
+        <circle cx="18" cy="24" r="10" fill="#EB001B"/>
+        <circle cx="30" cy="24" r="10" fill="#F79E1B"/>
+        <path d="M24 16.5a10 10 0 000 15 10 10 0 000-15z" fill="#FF5F00"/>
+      </svg>
+    ),
+    amex: (
+      <svg viewBox="0 0 48 48" className="w-8 h-6">
+        <rect width="48" height="48" rx="4" fill="#006FCF"/>
+        <path d="M8 28h4l.8-2h1.8l.8 2h8v-1.5l.7 1.5h4.2l.7-1.5V28h16v-8H29.3l-.7 1.5V20h-4.2l-.7 1.5-.7-1.5H8v8zm3.5-6.5h2.2l2.5 5.7v-5.7h2.4l1.9 4 1.8-4h2.4v6.5h-1.5l-.1-5.1-2.2 5.1h-1.4l-2.2-5.1v5.1h-3l-.8-2h-4.2l-.8 2H8l3.5-6.5zm1.1 3.3h2.4l-1.2-2.9-1.2 2.9z" fill="white"/>
+      </svg>
+    ),
+    discover: (
+      <svg viewBox="0 0 48 48" className="w-8 h-6">
+        <rect width="48" height="48" rx="4" fill="#FF6000"/>
+        <ellipse cx="24" cy="24" rx="8" ry="8" fill="white"/>
+        <text x="24" y="28" textAnchor="middle" fontSize="8" fill="#FF6000" fontWeight="bold">D</text>
+      </svg>
+    ),
+    jcb: (
+      <svg viewBox="0 0 48 48" className="w-8 h-6">
+        <rect width="48" height="48" rx="4" fill="white"/>
+        <rect x="8" y="12" width="10" height="24" rx="2" fill="#0B4EA2"/>
+        <rect x="19" y="12" width="10" height="24" rx="2" fill="#E4002B"/>
+        <rect x="30" y="12" width="10" height="24" rx="2" fill="#009B3A"/>
+      </svg>
+    ),
+    diners: (
+      <svg viewBox="0 0 48 48" className="w-8 h-6">
+        <rect width="48" height="48" rx="4" fill="#004A97"/>
+        <circle cx="24" cy="24" r="12" fill="white"/>
+        <circle cx="20" cy="24" r="8" fill="none" stroke="#004A97" strokeWidth="2"/>
+        <circle cx="28" cy="24" r="8" fill="none" stroke="#004A97" strokeWidth="2"/>
+      </svg>
+    ),
+    unionpay: (
+      <svg viewBox="0 0 48 48" className="w-8 h-6">
+        <rect width="48" height="48" rx="4" fill="#D8232A"/>
+        <path d="M12 12h8l4 24h-8l-4-24z" fill="#00447C"/>
+        <path d="M22 12h8l4 24h-8l-4-24z" fill="#D8232A"/>
+        <path d="M32 12h8l-4 24h-8l4-24z" fill="#00447C"/>
+      </svg>
+    ),
+    unknown: (
+      <svg viewBox="0 0 48 48" className="w-8 h-6">
+        <rect width="48" height="48" rx="4" fill="#6B7280"/>
+        <rect x="8" y="16" width="32" height="4" rx="1" fill="white" opacity="0.5"/>
+        <rect x="8" y="24" width="20" height="3" rx="1" fill="white" opacity="0.3"/>
+        <rect x="8" y="30" width="12" height="3" rx="1" fill="white" opacity="0.3"/>
+      </svg>
+    ),
+  };
+  
+  return (
+    <div className="flex items-center gap-2" title={card.name}>
+      {icons[card.type]}
+      <span className="text-xs text-slate-400">{card.name}</span>
+    </div>
+  );
+};
+
 export default function Results() {
   const utils = trpc.useUtils();
   const [filters, setFilters] = useState<{ status?: "ACTIVE" | "DECLINED" | "ERROR"; country?: string }>({});
@@ -14,8 +130,17 @@ export default function Results() {
 
   const exportCSV = () => {
     if (!data?.results) return;
-    const headers = ["Card Number", "Expiry", "CVV", "Status", "Bank", "Country", "Date"];
-    const rows = data.results.map(r => [r.cardNumber, `${r.expiryMonth}/${r.expiryYear}`, r.cvv || "", r.status, r.bank || "", r.country || "", new Date(r.createdAt).toLocaleString()]);
+    const headers = ["Card Number", "Card Type", "Expiry", "CVV", "Status", "Bank", "Country", "Date"];
+    const rows = data.results.map(r => [
+      r.cardNumber, 
+      getCardType(r.cardNumber).name,
+      `${r.expiryMonth}/${r.expiryYear}`, 
+      r.cvv || "", 
+      r.status, 
+      r.bank || "", 
+      r.country || "", 
+      new Date(r.createdAt).toLocaleString()
+    ]);
     const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -142,6 +267,7 @@ export default function Results() {
                     className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-primary focus:ring-primary/50" 
                   />
                 </th>
+                <th className="px-4 py-4 text-right text-sm font-medium text-slate-400">نوع البطاقة</th>
                 <th className="px-4 py-4 text-right text-sm font-medium text-slate-400">رقم البطاقة</th>
                 <th className="px-4 py-4 text-right text-sm font-medium text-slate-400">الانتهاء</th>
                 <th className="px-4 py-4 text-right text-sm font-medium text-slate-400">CVV</th>
@@ -155,7 +281,7 @@ export default function Results() {
             <tbody className="divide-y divide-slate-700/50">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center">
+                  <td colSpan={10} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
                       <span className="text-slate-400">جاري التحميل...</span>
@@ -164,7 +290,7 @@ export default function Results() {
                 </tr>
               ) : data?.results?.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center">
+                  <td colSpan={10} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center">
                         <span className="text-3xl">💳</span>
@@ -182,6 +308,9 @@ export default function Results() {
                       onChange={(e) => setSelected(e.target.checked ? [...selected, r.id] : selected.filter(id => id !== r.id))} 
                       className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-primary focus:ring-primary/50" 
                     />
+                  </td>
+                  <td className="px-4 py-3">
+                    <CardIcon cardNumber={r.cardNumber} />
                   </td>
                   <td className="px-4 py-3 font-mono text-white">{r.cardNumber}</td>
                   <td className="px-4 py-3 text-slate-300">{r.expiryMonth}/{r.expiryYear}</td>

@@ -1,24 +1,45 @@
 import { useState } from "react";
 import { trpc } from "../lib/trpc";
 
+interface EditUser {
+  id: number;
+  username: string;
+  maxDailyChecks: number;
+  expiresAt: string;
+  isActive: boolean;
+}
+
 export default function Users() {
   const utils = trpc.useUtils();
   const { data: users, isLoading } = trpc.scriptUsers.list.useQuery();
   const [showCreate, setShowCreate] = useState(false);
-  const [newUser, setNewUser] = useState({ username: "", password: "", maxDailyChecks: 1000, expiresAt: "" });
+  const [showEdit, setShowEdit] = useState(false);
+  const [editUser, setEditUser] = useState<EditUser | null>(null);
+  const [newUser, setNewUser] = useState({ username: "", password: "", maxDailyChecks: 1000000, expiresAt: "" });
   const [searchTerm, setSearchTerm] = useState("");
 
   const createMutation = trpc.scriptUsers.create.useMutation({
-    onSuccess: () => { utils.scriptUsers.list.invalidate(); setShowCreate(false); setNewUser({ username: "", password: "", maxDailyChecks: 1000, expiresAt: "" }); },
+    onSuccess: () => { utils.scriptUsers.list.invalidate(); setShowCreate(false); setNewUser({ username: "", password: "", maxDailyChecks: 1000000, expiresAt: "" }); },
   });
 
   const deleteMutation = trpc.scriptUsers.delete.useMutation({
     onSuccess: () => utils.scriptUsers.list.invalidate(),
   });
 
-  const toggleMutation = trpc.scriptUsers.update.useMutation({
-    onSuccess: () => utils.scriptUsers.list.invalidate(),
+  const updateMutation = trpc.scriptUsers.update.useMutation({
+    onSuccess: () => { utils.scriptUsers.list.invalidate(); setShowEdit(false); setEditUser(null); },
   });
+
+  const openEditModal = (user: any) => {
+    setEditUser({
+      id: user.id,
+      username: user.username,
+      maxDailyChecks: user.maxDailyChecks || 1000000,
+      expiresAt: user.expiresAt ? new Date(user.expiresAt).toISOString().slice(0, 16) : "",
+      isActive: user.isActive,
+    });
+    setShowEdit(true);
+  };
 
   const filteredUsers = users?.filter(user => 
     user.username.toLowerCase().includes(searchTerm.toLowerCase())
@@ -26,6 +47,10 @@ export default function Users() {
 
   const totalUsers = users?.length || 0;
   const activeUsers = users?.filter(u => u.isActive).length || 0;
+
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('ar-SA').format(num);
+  };
 
   return (
     <div className="p-8 space-y-6">
@@ -116,7 +141,8 @@ export default function Users() {
               </div>
               <div>
                 <label className="block text-slate-400 text-sm mb-2">الحد اليومي للفحوصات</label>
-                <input type="number" placeholder="1000" value={newUser.maxDailyChecks} onChange={(e) => setNewUser({ ...newUser, maxDailyChecks: parseInt(e.target.value) })} className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-primary/50" />
+                <input type="number" placeholder="1000000" value={newUser.maxDailyChecks} onChange={(e) => setNewUser({ ...newUser, maxDailyChecks: parseInt(e.target.value) || 0 })} min="0" max="999999999" className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-primary/50" />
+                <p className="text-slate-500 text-xs mt-1">يمكنك إدخال أي رقم (مثال: 1000000)</p>
               </div>
               <div>
                 <label className="block text-slate-400 text-sm mb-2">تاريخ الانتهاء (اختياري)</label>
@@ -128,6 +154,86 @@ export default function Users() {
                 </button>
                 <button onClick={() => createMutation.mutate(newUser)} disabled={createMutation.isPending || !newUser.username || !newUser.password} className="flex-1 bg-gradient-to-r from-primary to-cyan-500 hover:from-primary/90 hover:to-cyan-500/90 text-white px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                   {createMutation.isPending ? "جاري الإنشاء..." : "إنشاء"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEdit && editUser && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900 p-8 rounded-2xl w-full max-w-md border border-slate-700/50 shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white">تعديل المستخدم: {editUser.username}</h3>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-slate-400 text-sm mb-2">الحد اليومي للفحوصات</label>
+                <input 
+                  type="number" 
+                  value={editUser.maxDailyChecks} 
+                  onChange={(e) => setEditUser({ ...editUser, maxDailyChecks: parseInt(e.target.value) || 0 })} 
+                  min="0" 
+                  max="999999999"
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-primary/50" 
+                />
+                <p className="text-slate-500 text-xs mt-1">القيمة الحالية: {formatNumber(editUser.maxDailyChecks)}</p>
+              </div>
+              <div>
+                <label className="block text-slate-400 text-sm mb-2">تاريخ الانتهاء</label>
+                <input 
+                  type="datetime-local" 
+                  value={editUser.expiresAt} 
+                  onChange={(e) => setEditUser({ ...editUser, expiresAt: e.target.value })} 
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:border-primary/50" 
+                />
+                <p className="text-slate-500 text-xs mt-1">اتركه فارغاً لإزالة تاريخ الانتهاء</p>
+              </div>
+              <div>
+                <label className="block text-slate-400 text-sm mb-2">الحالة</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      checked={editUser.isActive} 
+                      onChange={() => setEditUser({ ...editUser, isActive: true })}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <span className="text-green-400">نشط</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      checked={!editUser.isActive} 
+                      onChange={() => setEditUser({ ...editUser, isActive: false })}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <span className="text-red-400">معطل</span>
+                  </label>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button onClick={() => { setShowEdit(false); setEditUser(null); }} className="flex-1 bg-slate-700/50 hover:bg-slate-700 text-white px-4 py-3 rounded-xl transition-colors">
+                  إلغاء
+                </button>
+                <button 
+                  onClick={() => updateMutation.mutate({ 
+                    id: editUser.id, 
+                    maxDailyChecks: editUser.maxDailyChecks,
+                    expiresAt: editUser.expiresAt || undefined,
+                    isActive: editUser.isActive
+                  })} 
+                  disabled={updateMutation.isPending} 
+                  className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-500/90 hover:to-orange-500/90 text-white px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updateMutation.isPending ? "جاري الحفظ..." : "حفظ التغييرات"}
                 </button>
               </div>
             </div>
@@ -189,12 +295,12 @@ export default function Users() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-medium">{user.todayChecks || 0}</span>
+                      <span className="text-white font-medium">{formatNumber(user.todayChecks || 0)}</span>
                       <span className="text-slate-500">/</span>
-                      <span className="text-slate-400">{user.maxDailyChecks || 1000}</span>
+                      <span className="text-slate-400">{formatNumber(user.maxDailyChecks || 1000000)}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-white font-medium">{user.totalChecks || 0}</td>
+                  <td className="px-6 py-4 text-white font-medium">{formatNumber(user.totalChecks || 0)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden">
@@ -214,8 +320,17 @@ export default function Users() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => toggleMutation.mutate({ id: user.id, isActive: !user.isActive })} 
-                        className={`p-2 rounded-lg transition-colors ${user.isActive ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-green-500/20 text-green-400 hover:bg-green-500/30"}`}
+                        onClick={() => openEditModal(user)}
+                        className="p-2 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
+                        title="تعديل"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button 
+                        onClick={() => updateMutation.mutate({ id: user.id, isActive: !user.isActive })} 
+                        className={`p-2 rounded-lg transition-colors ${user.isActive ? "bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30" : "bg-green-500/20 text-green-400 hover:bg-green-500/30"}`}
                         title={user.isActive ? "تعطيل" : "تفعيل"}
                       >
                         {user.isActive ? (
