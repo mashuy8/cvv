@@ -21,10 +21,6 @@ export async function getAdminUserById(id: number) {
   return user || null;
 }
 
-export async function updateAdminUserLastSignIn(id: number) {
-  await db.update(schema.adminUsers).set({ lastSignedIn: new Date() }).where(eq(schema.adminUsers.id, id));
-}
-
 // Script Users
 export async function getAllScriptUsers() {
   return await db.select().from(schema.scriptUsers).orderBy(desc(schema.scriptUsers.createdAt));

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { SignJWT } from "jose";
 import { router, publicProcedure, protectedProcedure } from "./trpc";
-import { getAllScriptUsers, getScriptUserById, createScriptUser, updateScriptUser, deleteScriptUser, getCardResults, getCardResultsCount, getRecentResults, getActivityLogs, getStatistics, invalidateUserSessions, getAdminUserByUsername, updateAdminUserLastSignIn, logActivity, deleteCardResult, deleteCardResults, getDistinctCountries, clearActivityLogs } from "./db";
+import { getAllScriptUsers, getScriptUserById, createScriptUser, updateScriptUser, deleteScriptUser, getCardResults, getCardResultsCount, getRecentResults, getActivityLogs, getStatistics, invalidateUserSessions, getAdminUserByUsername, logActivity, deleteCardResult, deleteCardResults, getDistinctCountries, clearActivityLogs } from "./db";
 import { hashPassword, verifyPassword } from "./crypto";
 
 const COOKIE_NAME = "app_session";
@@ -23,7 +23,6 @@ export const appRouter = router({
           throw new TRPCError({ code: "UNAUTHORIZED", message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
         }
         
-        await updateAdminUserLastSignIn(user.id);
         await logActivity({ adminUserId: user.id, action: "admin_login", details: `تسجيل دخول: ${user.username}`, ipAddress: ctx.req.ip || "" });
         
         const token = await new SignJWT({ adminId: user.id, username: user.username })
