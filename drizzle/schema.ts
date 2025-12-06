@@ -42,11 +42,10 @@ export const cardResults = mysqlTable("card_results", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Activity logs
+// Activity logs - NO admin_user_id column in actual DB
 export const activityLogs = mysqlTable("activity_logs", {
   id: int("id").primaryKey().autoincrement(),
   scriptUserId: int("script_user_id"),
-  adminUserId: int("admin_user_id"),
   action: varchar("action", { length: 64 }).notNull(),
   details: text("details"),
   ipAddress: varchar("ip_address", { length: 64 }),

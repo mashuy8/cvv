@@ -23,7 +23,7 @@ export const appRouter = router({
           throw new TRPCError({ code: "UNAUTHORIZED", message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
         }
         
-        await logActivity({ adminUserId: user.id, action: "admin_login", details: `تسجيل دخول: ${user.username}`, ipAddress: ctx.req.ip || "" });
+        await logActivity({ action: "admin_login", details: `تسجيل دخول: ${user.username}`, ipAddress: ctx.req.ip || "" });
         
         const token = await new SignJWT({ adminId: user.id, username: user.username })
           .setProtectedHeader({ alg: "HS256" })
@@ -35,7 +35,7 @@ export const appRouter = router({
       }),
     
     logout: publicProcedure.mutation(async ({ ctx }) => {
-      if (ctx.user) await logActivity({ adminUserId: ctx.user.id, action: "admin_logout", details: `تسجيل خروج: ${ctx.user.username}` });
+      if (ctx.user) await logActivity({ action: "admin_logout", details: `تسجيل خروج: ${ctx.user.username}` });
       ctx.res.clearCookie(COOKIE_NAME);
       return { success: true };
     }),
@@ -49,7 +49,7 @@ export const appRouter = router({
       .input(z.object({ username: z.string().min(3), password: z.string().min(6), maxDailyChecks: z.number().optional().default(1000), expiresAt: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
         const user = await createScriptUser({ username: input.username, passwordHash: hashPassword(input.password), maxDailyChecks: input.maxDailyChecks, expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined });
-        await logActivity({ adminUserId: ctx.user.id, action: "create_script_user", details: `إنشاء مستخدم: ${input.username}` });
+        await logActivity({ action: "create_script_user", details: `إنشاء مستخدم: ${input.username}` });
         return user;
       }),
     
@@ -61,21 +61,21 @@ export const appRouter = router({
         if (password) updateData.passwordHash = hashPassword(password);
         if (expiresAt !== undefined) updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
         await updateScriptUser(id, updateData);
-        await logActivity({ adminUserId: ctx.user.id, action: "update_script_user", details: `تحديث مستخدم ID: ${id}` });
+        await logActivity({ action: "update_script_user", details: `تحديث مستخدم ID: ${id}` });
         return { success: true };
       }),
     
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       await invalidateUserSessions(input.id);
       await deleteScriptUser(input.id);
-      await logActivity({ adminUserId: ctx.user.id, action: "delete_script_user", details: `حذف مستخدم ID: ${input.id}` });
+      await logActivity({ action: "delete_script_user", details: `حذف مستخدم ID: ${input.id}` });
       return { success: true };
     }),
     
     resetPassword: protectedProcedure.input(z.object({ id: z.number(), newPassword: z.string().min(6) })).mutation(async ({ ctx, input }) => {
       await updateScriptUser(input.id, { passwordHash: hashPassword(input.newPassword) });
       await invalidateUserSessions(input.id);
-      await logActivity({ adminUserId: ctx.user.id, action: "reset_password", details: `إعادة تعيين كلمة مرور ID: ${input.id}` });
+      await logActivity({ action: "reset_password", details: `إعادة تعيين كلمة مرور ID: ${input.id}` });
       return { success: true };
     }),
   }),
@@ -93,12 +93,12 @@ export const appRouter = router({
     count: protectedProcedure.input(z.object({ scriptUserId: z.number().optional(), status: z.enum(["ACTIVE", "DECLINED", "ERROR"]).optional() })).query(({ input }) => getCardResultsCount(input)),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       await deleteCardResult(input.id);
-      await logActivity({ adminUserId: ctx.user.id, action: "delete_result", details: `حذف نتيجة ID: ${input.id}` });
+      await logActivity({ action: "delete_result", details: `حذف نتيجة ID: ${input.id}` });
       return { success: true };
     }),
     deleteMany: protectedProcedure.input(z.object({ ids: z.array(z.number()) })).mutation(async ({ ctx, input }) => {
       await deleteCardResults(input.ids);
-      await logActivity({ adminUserId: ctx.user.id, action: "delete_results", details: `حذف ${input.ids.length} نتيجة` });
+      await logActivity({ action: "delete_results", details: `حذف ${input.ids.length} نتيجة` });
       return { success: true, count: input.ids.length };
     }),
   }),
@@ -107,7 +107,7 @@ export const appRouter = router({
     list: protectedProcedure.input(z.object({ scriptUserId: z.number().optional(), limit: z.number().optional().default(100), offset: z.number().optional().default(0) })).query(({ input }) => getActivityLogs(input)),
     clear: protectedProcedure.mutation(async ({ ctx }) => {
       await clearActivityLogs();
-      await logActivity({ adminUserId: ctx.user.id, action: "clear_logs", details: "مسح جميع السجلات" });
+      await logActivity({ action: "clear_logs", details: "مسح جميع السجلات" });
       return { success: true };
     }),
   }),

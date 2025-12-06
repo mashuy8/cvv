@@ -117,8 +117,8 @@ export async function getDistinctCountries() {
   return results.map(r => r.country).filter(Boolean);
 }
 
-// Activity Logs
-export async function logActivity(data: { scriptUserId?: number; adminUserId?: number; action: string; details?: string; ipAddress?: string; userAgent?: string }) {
+// Activity Logs - NO admin_user_id column
+export async function logActivity(data: { scriptUserId?: number; action: string; details?: string; ipAddress?: string; userAgent?: string }) {
   await db.insert(schema.activityLogs).values(data);
 }
 
